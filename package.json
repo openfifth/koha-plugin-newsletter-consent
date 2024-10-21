@@ -1,0 +1,26 @@
+{
+  "name": "koha-plugin-newsletter-consent",
+  "version": "0.0.1",
+  "description": "A Koha plugin that will allow for borrower-centred marketing consent preferences",
+  "main": "gulpfile.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "release": "bash ./release_kpz.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PTFS-Europe/koha-plugin-newsletter-consent.git"
+  },
+  "author": "PTFS Europe Ltd",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/PTFS-Europe/koha-plugin-newsletter-consent/issues"
+  },
+  "homepage": "https://github.com/PTFS-Europe/koha-plugin-newsletter-consent#readme",
+  "devDependencies": {
+    "gulp": "^5.0.0",
+    "gulp-cli": "^3.0.0",
+    "gulp-github-release": "^1.2.1",
+    "gulp-run": "^1.7.1"
+  }
+}
