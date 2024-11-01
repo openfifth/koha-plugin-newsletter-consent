@@ -1,0 +1,109 @@
+[% USE raw %]
+[% USE KohaDates %]
+[% PROCESS 'i18n.inc' %]
+[% SET footerjs = 1 %]
+[% INCLUDE 'doc-head-open.inc' %]
+<title>Newsletter Consent: Configure &rsaquo; Plugins &rsaquo; Administration &rsaquo; Koha</title>
+[% INCLUDE 'doc-head-close.inc' %]
+</head>
+
+<body id="newsletter_consent_plugin_configure" class="plugin">
+    [% WRAPPER 'header.inc' %]
+        [% INCLUDE 'prefs-admin-search.inc' %]
+    [% END %]
+
+    [% WRAPPER 'sub-header.inc' %]
+        [% WRAPPER breadcrumbs %]
+            [% WRAPPER breadcrumb_item %]
+                <a href="/cgi-bin/koha/admin/admin-home.pl">Administration</a>
+            [% END %]
+            [% WRAPPER breadcrumb_item %]
+                <a href="/cgi-bin/koha/plugins/plugins-home.pl">Plugins</a>
+            [% END %]
+            [% WRAPPER breadcrumb_item bc_active= 1 %]
+                <span>Newsletter Consent: Configure</span>
+            [% END %]
+        [% END #/ WRAPPER breadcrumbs %]
+    [% END #/ WRAPPER sub-header.inc %]
+
+    <div class="main container-fluid">
+        <div class="row">
+            <div class="col-md-10 order-md-2 order-sm-1">
+                <main>
+                    <h1>Newsletter Consent: Configure</h1>
+                    <form id="form" action="" method="get">
+                        <fieldset class="rows">
+                            <p>Please specify if you desire to sync patron consents with Mailchimp. If you do, please provide the API key for your account.</p>
+                            <ol>
+                                <li>
+                                    <label for="enable_mailchimp">Enable mailchimp</label>
+                                    <select name="enable_mailchimp">
+                                        [% IF enable_mailchimp == 1 %]
+                                        <option value="1" selected="selected">Yes</option>
+                                        [% ELSE %]
+                                        <option value="1">Yes</option>
+                                        [% END %]
+                                        [% IF enable_mailchimp == 1 %]
+                                        <option value="0">No</option>
+                                        [% ELSE %]
+                                        <option value="0" selected="selected">No</option>
+                                        [% END %]
+                                    </select>
+                                </li>
+                                <li>
+                                    <label for="mailchimp_api_key">Mailchimp API key</label>
+                                    <input name="mailchimp_api_key" type="text" size="80" value="[% mailchimp_api_key %]">
+                                </li>
+                            </ol>
+                        </fieldset>
+                        <fieldset class="rows">
+                            <p>Please specify if you desire to sync patron consents with eShot. If you do, please provide the API key for your account.</p>
+                            <ol>
+                                <li>
+                                    <label for="enable_eshot">Enable eShot</label>
+                                    <select name="enable_eshot">
+                                        [% IF enable_eshot == 1 %]
+                                        <option value="1" selected="selected">Yes</option>
+                                        [% ELSE %]
+                                        <option value="1">Yes</option>
+                                        [% END %]
+                                        [% IF enable_eshot == 1 %]
+                                        <option value="0">No</option>
+                                        [% ELSE %]
+                                        <option value="0" selected="selected">No</option>
+                                        [% END %]
+                                    </select>
+                                </li>
+                                <li>
+                                    <label for="eshot_api_key">eShot API key</label>
+                                    <input name="eshot_api_key" type="text" size="80" value="[% eshot_api_key %]">
+                                </li>
+                            </ol>
+                        </fieldset>
+                        <fieldset class="action">
+                            <input type="hidden" name="class" value="[% CLASS %]"/>
+                            <input type="hidden" name="method" value="[% METHOD %]"/>
+                            <input type="hidden" name="save" value="1" />
+                            <input type="submit" class="btn btn-primary" value="Save" />
+                            <a class="cancel" href="/cgi-bin/koha/plugins/plugins-home.pl">Cancel</a>
+                        </fieldset>
+                    </form>
+                </main>
+            </div> <!-- /.col-md-10.order-md-2 -->
+            <div class="col-md-2 order-sm-2 order-md-1">
+                <aside>
+                    [% INCLUDE 'admin-menu.inc' %]
+                </aside>
+            </div> <!-- /.col-md-2.order-md-1 -->
+        </div>
+    </div>
+
+    [% MACRO jsinclude BLOCK %]
+        <script>
+            $( document ).ready( function() {
+                $('#navmenulist a[href$="/cgi-bin/koha/plugins/plugins-home.pl"]').addClass("current");
+            } );
+        </script>
+    [% END %]
+
+[% INCLUDE 'intranet-bottom.inc' %]

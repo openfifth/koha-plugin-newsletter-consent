@@ -22,6 +22,30 @@
                             }
                         }
                     }
+                },
+                "403": {
+                    "description": "An error occured",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "error": {
+                                "description": "An explanation for the error",
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "404": {
+                    "description": "An error occured",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "error": {
+                                "description": "An explanation for the error",
+                                "type": "string"
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -55,6 +79,30 @@
                             "consent_type": {
                                 "type": "object",
                                 "description": "List of consents attributable to this patron"
+                            }
+                        }
+                    }
+                },
+                "403": {
+                    "description": "An error occured",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "error": {
+                                "description": "An explanation for the error",
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "404": {
+                    "description": "An error occured",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "error": {
+                                "description": "An explanation for the error",
+                                "type": "string"
                             }
                         }
                     }
@@ -111,6 +159,93 @@
                             "consent_type": {
                                 "type": "object",
                                 "description": "List of consents attributable to this patron"
+                            }
+                        }
+                    }
+                },
+                "403": {
+                    "description": "An error occured",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "error": {
+                                "description": "An explanation for the error",
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "404": {
+                    "description": "An error occured",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "error": {
+                                "description": "An explanation for the error",
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "x-koha-authorization": {
+                "allow-owner": true
+            }
+        }
+    },
+    "/consents/{patron_id}/sync_upstream": {
+        "get": {
+            "x-mojo-to": "Com::PTFSEurope::NewsletterConsent::APIController#get_sync_upstream",
+            "operationId": "getConsentSyncedUpstream",
+            "tags": [
+                "consents"
+            ],
+            "summary": "Gets patron consents pushed to mailchimp or eshot",
+            "produces": [
+                "application/json"
+            ],
+            "parameters": [
+                {
+                    "name": "patron_id",
+                    "in": "path",
+                    "description": "Internal patron identifier",
+                    "required": true,
+                    "type": "integer"
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Sync statuses",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "consent_type": {
+                                "type": "object",
+                                "description": "List of APIs and their passed consent status"
+                            }
+                        }
+                    }
+                },
+                "403": {
+                    "description": "An error occured",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "error": {
+                                "description": "An explanation for the error",
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "404": {
+                    "description": "An error occured",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "error": {
+                                "description": "An explanation for the error",
+                                "type": "string"
                             }
                         }
                     }

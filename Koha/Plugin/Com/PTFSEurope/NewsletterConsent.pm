@@ -2,9 +2,9 @@ package Koha::Plugin::Com::PTFSEurope::NewsletterConsent;
 
 use Modern::Perl;
 
-use base qw(Koha::Plugins::Base);
+use base qw{ Koha::Plugins::Base };
 
-use Mojo::JSON qw(decode_json);
+use Mojo::JSON qw{ decode_json };
 
 our $VERSION     = "0.0.1";
 my $consent_type = "NEWSLETTER";
@@ -41,7 +41,7 @@ sub new {
 }
 
 sub install {
-    my ($self) = shift;
+    my ( $self ) = shift;
 
     C4::Context->dbh->do(
         qq{INSERT IGNORE INTO plugin_methods (plugin_class, plugin_method) VALUES (?,?)},
@@ -52,7 +52,7 @@ sub install {
 }
 
 sub uninstall {
-    my ($self) = @_;
+    my ( $self ) = @_;
     C4::Context->dbh->do(
         qq{DELETE FROM plugin_data WHERE plugin_class LIKE ?},
             undef, ref $self
@@ -66,15 +66,35 @@ sub uninstall {
     return 1;
 }
 
-## API methods
-# If your plugin implements API routes, then the 'api_routes' method needs
-# to be implemented, returning valid OpenAPI 2.0 paths serialized as a hashref.
-# It is a good practice to actually write OpenAPI 2.0 path specs in JSON on the
-# plugin and read it here. This allows to use the spec for mainline Koha later,
-# thus making this a good prototyping tool.
+sub configure {
+    my ( $self ) = @_;
+    my $cgi = $self->{'cgi'};
+
+    unless ( $cgi->param('save') ) {
+        my $template = $self->get_template({ file => 'configure.tt' });
+
+        ## lets fetch the data
+        $template->param(
+            enable_mailchimp  => $self->retrieve_data('enable_mailchimp') ? 1 : 0,
+            mailchimp_api_key => $self->retrieve_data('mailchimp_api_key') || '',
+            enable_eshot      => $self->retrieve_data('enable_eshot') ? 1 : 0,
+            eshot_api_key     => $self->retrieve_data('eshot_api_key') || '',
+        );
+        $self->output_html( $template->output() );
+    } else {
+        ## lets save the data
+        $self->store_data( {
+            enable_mailchimp  => scalar $cgi->param('enable_mailchimp') ? 1 : 0,
+            mailchimp_api_key => $cgi->param('mailchimp_api_key'),
+            enable_eshot      => scalar $cgi->param('enable_eshot') ? 1 : 0,
+            eshot_api_key     => $cgi->param('eshot_api_key'),
+        } );
+        $self->go_home();
+    }
+}
 
 sub api_routes {
-    my ( $self, $args ) = @_;
+    my ( $self ) = @_;
 
     my $spec_str = $self->mbf_read('openapi.json');
     my $spec     = decode_json($spec_str);
@@ -88,8 +108,23 @@ sub api_namespace {
     return 'newsletterconsent';
 }
 
+sub static_routes {
+    my ( $self ) = @_;
+
+    my $spec_str = $self->mbf_read('staticapi.json');
+    my $spec     = decode_json($spec_str);
+
+    return $spec;
+}
+
+sub opac_js {
+    my ( $self ) = @_;
+
+    return q{ <script src="/api/v1/contrib/newsletterconsent/static/static_files/consents.js"></script> };
+}
+
 sub patron_consent_type {
-    my ($self) = @_;
+    my ( $self ) = @_;
 
     return [ $consent_type, $consent_info ],
 }
