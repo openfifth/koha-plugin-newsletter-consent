@@ -19,12 +19,20 @@ use Modern::Perl;
 
 use Mojo::Base 'Mojolicious::Controller';
 
+use LWP::UserAgent;
+use HTTP::Request;
+use Mojo::JSON qw{ encode_json };
+use MIME::Base64;
+
 use Koha::Patrons;
 use Koha::DateUtils qw{ dt_from_string };
+
 
 =head1 NAME
 
 Koha::Plugin::Com::PTFSEurope::NewsletterConsent::APIController
+
+=cut
 
 =head1 API
 
@@ -38,24 +46,23 @@ Controller function that handles listing available consents
 
 sub list {
     my ( $self ) = @_;
-    my $c = shift->openapi->valid_input or return;
+    my $c        = shift->openapi->valid_input or return;
 
     my $consent_types = Koha::Patron::Consents->available_types;
 
-    unless ($consent_types) {
-        return $c->render(
-            status  => 404,
-            openapi => {
-                error => "No consents defined.",
-            },
-        );
-    }
+    return $c->render(
+        status  => 404,
+        openapi => {
+            error => 'No consents defined.',
+        },
+    ) unless( $consent_types );
 
     return $c->render(
         status  => 200,
         openapi => $consent_types,
     );
 }
+
 
 =head3 get
 
@@ -64,24 +71,22 @@ Controller function that handles getting a patron's consents
 =cut
 
 sub get {
-    my ( $self ) = @_;
-    my $c = shift->openapi->valid_input or return;
+    my ( $self, $args ) = @_;
+    my $c               = shift->openapi->valid_input or return;
 
     my $patron    = $c->stash('koha.user');
     my $patron_id = $c->param('patron_id');
 
     ## block cross-patron usage
-    unless ( $patron->borrowernumber == $patron_id ) {
-        return $c->render(
-            status  => 403,
-            openapi => {
-                error => "Checking other patron's consents is forbidden",
-            },
-        );
-    }
+    return $c->render(
+        status  => 403,
+        openapi => {
+            error => 'Checking other patron\'s consents is forbidden',
+        },
+    ) unless( $patron->borrowernumber == $patron_id );
 
     return try {
-        my $contents_rs = Koha::Patron::Consents->search({ borrowernumber => $patron->borrowernumber });
+        my $contents_rs = Koha::Patron::Consents->search( { borrowernumber => $patron->borrowernumber } );
         ## regurgitate consents
         return $c->render(
             status  => 200,
@@ -92,6 +97,7 @@ sub get {
     }
 }
 
+
 =head3 update
 
 Controller function that handles updating a patron's consents
@@ -100,22 +106,20 @@ Controller function that handles updating a patron's consents
 
 sub update {
     my ( $self ) = @_;
-    my $c = shift->openapi->valid_input or return;
+    my $c        = shift->openapi->valid_input or return;
 
-    my $patron   = $c->stash('koha.user');
-    my $body     = $c->req->json;
+    my $patron = $c->stash('koha.user');
+    my $body   = $c->req->json;
 
     my $patron_id = $c->param('patron_id');
 
     ## block cross-patron usage
-    unless ( $patron->borrowernumber == $patron_id ) {
-        return $c->render(
-            status  => 403,
-            openapi => {
-                error => "Changing other patron's consents is forbidden",
-            },
-        );
-    }
+    return $c->render(
+        status  => 403,
+        openapi => {
+            error => 'Changing other patron\'s consents is forbidden',
+        },
+    ) unless( $patron->borrowernumber == $patron_id );
 
     my $consent_types = Koha::Patron::Consents->available_types;
     ## gather consent types
@@ -126,7 +130,7 @@ sub update {
 
     ## loop through found consent types
     foreach my $consent ( @consents ) {
-        our $check = $body->{$consent->type} ? 1 : 0;
+        my $check = ( $body->{$consent->type} ) ? 1 : 0;
         
         ## skip missing consents
         next if not defined $body->{$consent->type};
@@ -142,7 +146,7 @@ sub update {
     }
 
     return try {
-        my $contents_rs = Koha::Patron::Consents->search({ borrowernumber => $patron->borrowernumber });
+        my $contents_rs = Koha::Patron::Consents->search( { borrowernumber => $patron->borrowernumber } );
         ## regurgitate consents
         return $c->render(
             status  => 200,
@@ -153,6 +157,7 @@ sub update {
     }
 }
 
+
 =head3 get_sync_upstream
 
 Controller function that handles passing a patron's consent to an api
@@ -161,31 +166,32 @@ Controller function that handles passing a patron's consent to an api
 
 sub get_sync_upstream {
     my ( $self ) = @_;
-    my $c = shift->openapi->valid_input or return;
+    my $c        = shift->openapi->valid_input or return;
 
-    my $patron                = $c->stash('koha.user');
-    my $patron_id             = $c->param('patron_id');
+    my $patron    = $c->stash('koha.user');
+    my $patron_id = $c->param('patron_id');
+
+    ## store patron in object
+    $self->{sync_patron} = $patron;
 
     ## block cross-patron usage
-    unless ( $patron->borrowernumber == $patron_id ) {
-        return $c->render(
-            status  => 403,
-            openapi => {
-                error => "Changing other patron's consents is forbidden",
-            },
-        );
-    }
+    return $c->render(
+        status  => 403,
+        openapi => {
+            error => 'Changing other patron\'s consents is forbidden',
+        },
+    ) unless( $patron->borrowernumber == $patron_id );
 
     return try {
         ## attempt to do the sync
-        my $patron_sync = $self->process_sync_upstream( $patron );
+        my $patron_sync = $self->process_sync_upstream();
 
         ## yipees ------
         ## yay! looks good
         return $c->render(
             status  => 200,
             openapi => $patron_sync,
-        ) unless ( defined $patron_sync->{error} );
+        ) unless( defined $patron_sync->{error} );
 
         ## uh-ohs ------
         ## no borrowernumber found or no notice_email_address found
@@ -194,11 +200,21 @@ sub get_sync_upstream {
             openapi => {
                 error => $patron_sync->{error},
             },
-        ) if( $patron_sync->{error} eq "no borrowernumber found" || $patron_sync->{error} eq "no notice_email_address found" );
+        ) if( $patron_sync->{error} eq 'no borrowernumber found' || $patron_sync->{error} eq 'no notice_email_address found' );
+
+        ## everything else
+        return $->render(
+            status => 500,
+            openapi => {
+                error => $patron_sync->{error},
+            },
+        );
+        return 
     } catch {
         $c->unhandled_exception($_);
     }
 }
+
 
 =head3 process_sync_upstream
 
@@ -209,41 +225,108 @@ Method function that handles passing a patron's consent to an api
 sub process_sync_upstream {
     my ( $self, $args ) = @_;
     my $plugin                = Koha::Plugin::Com::PTFSEurope::NewsletterConsent->new;
-    my $patron                = $args; ## should be sent over from caller
-    my $patron_consent_status = $patron->consent('NEWSLETTER')->given_on ? 1 : 0;
+    my $patron                = $self->{sync_patron};
+    my $patron_consent_status = $patron->consent('NEWSLETTER')->given_on;
 
     ## check patron was sent
     return { error => 'no borrowernumber found' }
-      unless ( defined $patron->borrowernumber );
+        unless( defined $patron->borrowernumber );
     ## check patron has an email
     return { error => 'no notice_email_address found' }
-      unless ( defined $patron->notice_email_address );
+        unless( defined $patron->notice_email_address );
 
     ## determine if mailchimp & eshot are actually enabled
-    my $enable_mailchimp = $plugin->retrieve_data('enable_mailchimp') ? 1 : 0;
-    my $enable_eshot     = $plugin->retrieve_data('enable_eshot') ? 1 : 0;
+    my $enable_mailchimp = $plugin->retrieve_data('enable_mailchimp');
+    my $enable_eshot     = $plugin->retrieve_data('enable_eshot');
     ## if neither are enabled, there is nothing to sync
-    return {}
-      unless ( $enable_mailchimp == 1 || $enable_eshot == 1 );
-    
+    return {} unless( $enable_mailchimp == 1 || $enable_eshot == 1 );
+
+    ## prepare a user agent for the requests
+    $self->{ua} = LWP::UserAgent->new;
+
     ## righty, lets sync these consents -- mailchimp
-    my $mailchimp_api_key = $plugin->retrieve_data('mailchimp_api_key') || '';
+    my $is_mailchimp_synced = $self->process_sync_mailchimp()
+        if( $enable_mailchimp );
 
     ## righty, lets sync these consents -- eshot
-    my $eshot_api_key = $plugin->retrieve_data('mailchimp_api_key') || '';
+    my $is_eshot_synced = $self->process_sync_eshot()
+        if( $enable_eshot );
 
+    ## we're done
     return {
-        patron_id       => $patron->borrowernumber,
-        target_status   => ( $patron_consent_status ) ? Mojo::JSON->true : Mojo::JSON->false,
-        mailchimp       => {
-            enabled     => ( $enable_mailchimp ) ? Mojo::JSON->true : Mojo::JSON->false,
-            sync_status => undef,
+        patron_id         => $patron->borrowernumber,
+        target_status     => ( $patron_consent_status ) ? Mojo::JSON->true : Mojo::JSON->false,
+        mailchimp         => {
+            enabled       => ( $enable_mailchimp ) ? Mojo::JSON->true : Mojo::JSON->false,
+            sync_achieved => ( $is_mailchimp_synced ) ? Mojo::JSON->true : Mojo::JSON->false,
         },
-        eshot          => {
-            enabled     => ( $enable_eshot ) ? Mojo::JSON->true : Mojo::JSON->false,
-            sync_status => undef,
+        eshot             => {
+            enabled       => ( $enable_eshot ) ? Mojo::JSON->true : Mojo::JSON->false,
+            sync_achieved => ( $is_eshot_synced ) ? Mojo::JSON->true : Mojo::JSON->false,
         },
     };
+}
+
+
+=head3 process_sync_mailchimp
+
+Method function that handles passing a patron's consent to mailchimp
+
+=cut
+
+sub process_sync_mailchimp {
+    my ( $self, $args ) = @_;
+    my $plugin                = Koha::Plugin::Com::PTFSEurope::NewsletterConsent->new;
+    my $patron                = $self->{sync_patron};
+    my $patron_consent_status = $patron->consent('NEWSLETTER')->given_on;
+
+    ## get api details
+    my $mailchimp_api_key = $plugin->retrieve_data('mailchimp_api_key');
+    my $mailchimp_list_id = $plugin->retrieve_data('mailchimp_list_id');
+
+    ## if the key or list ids are missing, we can't continue
+    return undef
+        unless( $mailchimp_api_key && $mailchimp_list_id );
+
+    ## ascertain dc from api key
+    $mailchimp_api_key =~ /\S+-(.+)/i;
+    my $mailchimp_dc   =  $1;
+    my $baseurl        =  qq{https://$mailchimp_dc.api.mailchimp.com/3.0};
+
+    ## prep the body
+    my $body = encode_json({
+        members         => [
+            {
+                email_address => $patron->notice_email_address,
+                status        => ( $patron_consent_status ) ? 'subscribed' : 'unsubscribed',
+            },
+        ],
+        sync_tags       => Mojo::JSON->false,
+        update_existing => Mojo::JSON->true,
+    });
+
+    ## begin request
+    my $request = HTTP::Request->new( 'POST', $baseurl . '/lists/' . $mailchimp_list_id );
+    $request->header( 'Content-Type'  => 'application/json' );
+    $request->header( 'Authorization' => 'Basic ' . encode_base64( qq{anon:$mailchimp_api_key} ) );
+    $request->content($body);
+    my $response = $self->{ua}->request( $request );
+
+    ## some basic logic about return code
+    return 1 unless( $response->{_rc} != 200 );
+    return undef;
+
+}
+
+
+=head3 process_sync_eshot
+
+Method function that handles passing a patron's consent to eShot
+
+=cut
+
+sub process_sync_eshot {
+    return 1;
 }
 
 1;

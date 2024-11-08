@@ -34,6 +34,7 @@
                     <form id="form" action="" method="get">
                         <fieldset class="rows">
                             <p>Please specify if you desire to sync patron consents with Mailchimp. If you do, please provide the API key for your account.</p>
+                            <p>Documentation on creating an API key can be found <a href="https://mailchimp.com/help/about-api-keys/" target="_blank">at this link</a>, and documentation on finding your Audience ID can be found <a href="https://mailchimp.com/help/find-audience-id/" target="_blank">at this link</a>.</p>
                             <ol>
                                 <li>
                                     <label for="enable_mailchimp">Enable mailchimp</label>
@@ -53,6 +54,10 @@
                                 <li>
                                     <label for="mailchimp_api_key">Mailchimp API key</label>
                                     <input name="mailchimp_api_key" type="text" size="80" value="[% mailchimp_api_key %]">
+                                </li>
+                                <li>
+                                    <label for="mailchimp_list_id">Mailchimp Audience ID</label>
+                                    <input name="mailchimp_list_id" type="text" size="80" value="[% mailchimp_list_id %]">
                                 </li>
                             </ol>
                         </fieldset>

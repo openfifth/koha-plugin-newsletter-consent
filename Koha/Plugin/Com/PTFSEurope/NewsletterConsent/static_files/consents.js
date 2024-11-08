@@ -1,4 +1,7 @@
 document.addEventListener("DOMContentLoaded", function(event) {
+    // create hidden alert for possible errors
+    $('form[action="/cgi-bin/koha/opac-patron-consent.pl"]').append('<div id="errorField" class="alert alert-warning d-none"></div>');
+
     // catch form and do stuff
     $('form[action="/cgi-bin/koha/opac-patron-consent.pl"]').on('submit', function(event) {
         // hold the form first
@@ -26,14 +29,30 @@ document.addEventListener("DOMContentLoaded", function(event) {
             contentType: 'application/json; charset=utf-8',
             dataType: 'json'
         })
-        .done(function(data) {
+        .error(function(data) {
+            var jqueryObj = $('#errorField');
+
+            // two responses - one for JSON, and one for HTML
+            if(data.responseJSON) {
+                jqueryObj.append('Oh dear, that\'s gone horribly wrong! Please could you copy the block of code below, and email it to a librarian? It will help us improve our service. Thanks!<br /><pre>' + data.responseJSON.error + '</pre><br /><a href="">Refresh to see changes</a>');
+                jqueryObj.removeClass('d-none');
+            } else {
+                jqueryObj.append('Oh dear, that\'s gone horribly wrong! We haven\'t got much information other than the status code: <strong>' + data.status + '</strong>. Please could you email a librarian? It will help us improve our service. Thanks!<br /><a href="">Refresh to see changes</a>');
+                jqueryObj.removeClass('d-none');
+            }
+        })
+        .success(function(data) {
             // now lets sync with the apis upstream
             $.ajax({
                 url:  '/api/v1/contrib/newsletterconsent/consents/' + borrowernumber + '/sync_upstream',
                 type: 'GET'
             })
-            .done(function(data) {
-                //return window.location.reload();
+            .error(function(data) {
+                $('form[action="/cgi-bin/koha/opac-patron-consent.pl"]').append('<div class="alert alert-warning">Unable to sync consents. Your choice has been registered, but please get in touch with a librarian, and show them this error: <strong>' + data.responseJSON.error + '</strong>. This information will be needed to reflect your preferences effectively.</div><a href="">Refresh to see changes</a>');
+            })
+            .success(function(data) {
+                // redirect
+                return window.location.reload();
             });
         });
 
