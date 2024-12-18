@@ -34,10 +34,10 @@ document.addEventListener("DOMContentLoaded", function(event) {
 
             // two responses - one for JSON, and one for HTML
             if(data.responseJSON) {
-                jqueryObj.append('Oh dear, that\'s gone horribly wrong! Please could you copy the block of code below, and email it to a librarian? It will help us improve our service. Thanks!<br /><pre>' + data.responseJSON.error + '</pre><br /><a href="">Refresh to see changes</a>');
+                jqueryObj.append('<p>Oh dear, that\'s gone horribly wrong! Please could you copy the block of code below, and email it to a librarian? It will help us improve our service. Thanks!<br /><pre>' + data.responseJSON.error + '</pre><br /><a href="">Refresh to see changes</a></p>');
                 jqueryObj.removeClass('d-none');
             } else {
-                jqueryObj.append('Oh dear, that\'s gone horribly wrong! We haven\'t got much information other than the status code: <strong>' + data.status + '</strong>. Please could you email a librarian? It will help us improve our service. Thanks!<br /><a href="">Refresh to see changes</a>');
+                jqueryObj.append('<p>Oh dear, that\'s gone horribly wrong! We haven\'t got much information other than the status code: <strong>' + data.status + '</strong>. Please could you email a librarian? It will help us improve our service. Thanks!<br /><a href="">Refresh to see changes</a></p>');
                 jqueryObj.removeClass('d-none');
             }
         })
@@ -48,7 +48,9 @@ document.addEventListener("DOMContentLoaded", function(event) {
                 type: 'GET'
             })
             .error(function(data) {
-                $('form[action="/cgi-bin/koha/opac-patron-consent.pl"]').append('<div class="alert alert-warning">Unable to sync consents. Your choice has been registered, but please get in touch with a librarian, and show them this error: <strong>' + data.responseJSON.error + '</strong>. This information will be needed to reflect your preferences effectively.</div><a href="">Refresh to see changes</a>');
+                var jqueryObj = $('#errorField');
+
+                jqueryObj.append('<p>Unable to sync consents. Your choice has been registered, but please get in touch with a librarian, and show them this error: <strong>' + data.responseJSON.error + '</strong>. This information will be needed to reflect your preferences effectively.</div><a href="">Refresh to see changes</a></p>');
             })
             .success(function(data) {
                 // redirect

@@ -245,11 +245,11 @@ sub process_sync_upstream {
     $self->{ua} = LWP::UserAgent->new;
 
     ## righty, lets sync these consents -- mailchimp
-    my $is_mailchimp_synced = $self->process_sync_mailchimp()
+    my ($is_mailchimp_synced, $mailchimp_sync_msg) = $self->process_sync_mailchimp()
         if( $enable_mailchimp );
 
     ## righty, lets sync these consents -- eshot
-    my $is_eshot_synced = $self->process_sync_eshot()
+    my ($is_eshot_synced, $eshot_sync_msg) = $self->process_sync_eshot()
         if( $enable_eshot );
 
     ## we're done
@@ -278,7 +278,7 @@ sub process_sync_mailchimp {
     my ( $self, $args ) = @_;
     my $plugin                = Koha::Plugin::Com::PTFSEurope::NewsletterConsent->new;
     my $patron                = $self->{sync_patron};
-    my $patron_consent_status = $patron->consent('NEWSLETTER')->given_on;
+    my $patron_consent_status = ( $patron->consent('NEWSLETTER')->given_on ) ? 'subscribed' : 'unsubscribed';
 
     ## get api details
     my $mailchimp_api_key = $plugin->retrieve_data('mailchimp_api_key');
@@ -298,7 +298,7 @@ sub process_sync_mailchimp {
         members         => [
             {
                 email_address => $patron->notice_email_address,
-                status        => ( $patron_consent_status ) ? 'subscribed' : 'unsubscribed',
+                status        => $patron_consent_status,
             },
         ],
         sync_tags       => Mojo::JSON->false,
@@ -307,14 +307,17 @@ sub process_sync_mailchimp {
 
     ## begin request
     my $request = HTTP::Request->new( 'POST', $baseurl . '/lists/' . $mailchimp_list_id );
+
+    $request->header( 'User-Agent'  => 'perl/"$^V' );
     $request->header( 'Content-Type'  => 'application/json' );
     $request->header( 'Authorization' => 'Basic ' . encode_base64( qq{anon:$mailchimp_api_key} ) );
     $request->content($body);
+
     my $response = $self->{ua}->request( $request );
 
     ## some basic logic about return code
-    return 1 unless( $response->{_rc} != 200 );
-    return undef;
+    return ( 1, $response->{_content} ) if( $response->{_rc} =~ /2[0-9]{2,}/i );
+    return ( undef, $response->{_content} );
 
 }
 
@@ -326,7 +329,45 @@ Method function that handles passing a patron's consent to eShot
 =cut
 
 sub process_sync_eshot {
-    return 1;
+    my ( $self, $args ) = @_;
+    my $plugin                = Koha::Plugin::Com::PTFSEurope::NewsletterConsent->new;
+    my $patron                = $self->{sync_patron};
+    my $patron_consent_status = ( $patron->consent('NEWSLETTER')->given_on ) ? 'subscribed' : 'unsubscribed';
+
+    ## get api details
+    my $eshot_api_key = $plugin->retrieve_data('eshot_api_key');
+
+    ## if the key or list ids are missing, we can't continue
+    return undef
+        unless( $eshot_api_key );
+
+    ## change this to correct endpoint url
+    my $baseurl = qq{https://rest-api.e-shot.net};
+
+    ## prep the body
+    my $body = encode_json({
+        SubaccountID => 2,
+        Email        => $patron->notice_email_address,
+    });
+
+    ## begin request
+    my $request;
+    $request = HTTP::Request->new( 'POST', $baseurl . '/Contacts/ResubscribeEmail' )
+        if $patron_consent_status eq 'subscribed';
+    $request = HTTP::Request->new( 'POST', $baseurl . '/Contacts/UnsubscribeEmail' )
+        if $patron_consent_status eq 'unsubscribed';
+
+    $request->header( 'User-Agent'  => 'perl/"$^V' );
+    $request->header( 'Content-Type'  => 'application/json' );
+    $request->header( 'Authorization' => 'Token ' . $eshot_api_key );
+    $request->content($body);
+
+    my $response = $self->{ua}->request( $request );
+
+    ## some basic logic about return code
+    return ( 1, $response->{_content} ) if( $response->{_rc} =~ /2[0-9]{2,}/i );
+    return ( undef, $response->{_content} );
+
 }
 
 1;

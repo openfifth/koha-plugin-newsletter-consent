@@ -4,7 +4,7 @@ use Modern::Perl;
 
 use base qw{ Koha::Plugins::Base };
 
-use Mojo::JSON qw{ decode_json };
+use JSON::Validator::Schema::OpenAPIv2;
 
 our $VERSION  = '0.0.1';
 our $metadata = {
@@ -100,8 +100,9 @@ sub configure {
 sub api_routes {
     my ( $self ) = @_;
 
-    my $spec_str = $self->mbf_read('openapi.json');
-    my $spec     = decode_json($spec_str);
+    my $spec_file = $self->mbf_path('openapi.yaml');
+    my $schema    = JSON::Validator::Schema::OpenAPIv2->new->resolve( $spec_file );
+    my $spec      = $schema->bundle->data;
 
     return $spec;
 }
@@ -115,10 +116,17 @@ sub api_namespace {
 sub static_routes {
     my ( $self ) = @_;
 
-    my $spec_str = $self->mbf_read('staticapi.json');
-    my $spec     = decode_json($spec_str);
+    my $spec_file = $self->mbf_path('staticapi.yaml');
+    my $schema    = JSON::Validator::Schema::OpenAPIv2->new->resolve( $spec_file );
+    my $spec      = $schema->bundle->data;
 
     return $spec;
+}
+
+sub opac_head {
+    my ( $self ) = @_;
+
+    return '<link rel="stylesheet" href="/api/v1/contrib/newsletterconsent/static/static_files/consents.css" />';
 }
 
 sub opac_js {
