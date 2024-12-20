@@ -1,6 +1,6 @@
 {
   "name": "koha-plugin-newsletter-consent",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "A Koha plugin that will allow for borrower-centred marketing consent preferences",
   "main": "gulpfile.js",
   "scripts": {

@@ -6,12 +6,12 @@ use base qw{ Koha::Plugins::Base };
 
 use JSON::Validator::Schema::OpenAPIv2;
 
-our $VERSION  = '0.0.1';
+our $VERSION  = '1.0.0';
 our $metadata = {
     name            => 'Newsletter Consent',
     author          => 'Jake Deery',
     date_authored   => '2024-10-22',
-    date_updated    => '2024-10-25',
+    date_updated    => '2024-12-20',
     minimum_version => '23.11.00.000',
     maximum_version => undef,
     version         => $VERSION,
