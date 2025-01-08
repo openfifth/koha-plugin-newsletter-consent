@@ -74,6 +74,8 @@
               description: An explanation for the error
               type: string
     x-koha-authorization:
+      permissions:
+        borrowers: "1"
       allow-owner: true
   put:
     x-mojo-to: Com::PTFSEurope::NewsletterConsent::APIController#update

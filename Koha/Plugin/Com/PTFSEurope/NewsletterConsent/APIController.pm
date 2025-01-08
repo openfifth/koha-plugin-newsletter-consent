@@ -74,16 +74,10 @@ sub get {
     my ( $self, $args ) = @_;
     my $c               = shift->openapi->valid_input or return;
 
-    my $patron    = $c->stash('koha.user');
-    my $patron_id = $c->param('patron_id');
+    my $patron = Koha::Patrons->find( $c->param('patron_id') );
 
-    ## block cross-patron usage
-    return $c->render(
-        status  => 403,
-        openapi => {
-            error => 'Checking other patron\'s consents is forbidden',
-        },
-    ) unless( $patron->borrowernumber == $patron_id );
+    return $c->render_resource_not_found("Patron")
+        unless $patron;
 
     return try {
         my $contents_rs = Koha::Patron::Consents->search( { borrowernumber => $patron->borrowernumber } );
@@ -111,15 +105,10 @@ sub update {
     my $patron = $c->stash('koha.user');
     my $body   = $c->req->json;
 
-    my $patron_id = $c->param('patron_id');
+    my $patron = Koha::Patrons->find( $c->param('patron_id') );
 
-    ## block cross-patron usage
-    return $c->render(
-        status  => 403,
-        openapi => {
-            error => 'Changing other patron\'s consents is forbidden',
-        },
-    ) unless( $patron->borrowernumber == $patron_id );
+    return $c->render_resource_not_found("Patron")
+        unless $patron;
 
     my $consent_types = Koha::Patron::Consents->available_types;
     ## gather consent types
