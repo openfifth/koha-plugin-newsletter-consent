@@ -6,7 +6,7 @@ use base qw{ Koha::Plugins::Base };
 
 use JSON::Validator::Schema::OpenAPIv2;
 
-our $VERSION  = '1.0.0';
+our $VERSION  = '1.0.1';
 our $metadata = {
     name            => 'Newsletter Consent',
     author          => 'Jake Deery',

@@ -130,6 +130,8 @@
               description: An explanation for the error
               type: string
     x-koha-authorization:
+      permissions:
+        borrowers: "1"
       allow-owner: true
 "/consents/{patron_id}/sync_upstream":
   get:
@@ -172,4 +174,6 @@
               description: An explanation for the error
               type: string
     x-koha-authorization:
+      permissions:
+        borrowers: "1"
       allow-owner: true
