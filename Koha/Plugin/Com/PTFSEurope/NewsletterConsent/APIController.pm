@@ -102,8 +102,8 @@ sub update {
     my ( $self ) = @_;
     my $c        = shift->openapi->valid_input or return;
 
-    my $patron = $c->stash('koha.user');
-    my $body   = $c->req->json;
+    my $user = $c->stash('koha.user');
+    my $body = $c->req->json;
 
     my $patron = Koha::Patrons->find( $c->param('patron_id') );
 
