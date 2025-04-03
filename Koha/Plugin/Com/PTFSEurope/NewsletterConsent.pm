@@ -4,6 +4,9 @@ use Modern::Perl;
 
 use base qw{ Koha::Plugins::Base };
 
+use Koha::Libraries;
+
+use JSON;
 use JSON::Validator::Schema::OpenAPIv2;
 
 our $VERSION  = '1.0.2';
@@ -52,28 +55,52 @@ sub uninstall {
 sub configure {
     my ($self) = @_;
     my $cgi = $self->{'cgi'};
+    my $json = JSON->new->allow_nonref;
 
     unless ($cgi->param('save')) {
         my $template = $self->get_template({file => 'configure.tt'});
+        my $branches = Koha::Libraries->search();
+
+        ## lets fetch the lists
+        my @mailchimp_branches = ( $self->retrieve_data('mailchimp_branches') ) ?
+                                     split /\t/, $self->retrieve_data('mailchimp_branches') :
+                                     undef;
+
+        my @eshot_branches     = ( $self->retrieve_data('eshot_branches') ) ?
+                                     split /\t/, $self->retrieve_data('eshot_branches') :
+                                     undef;
 
         ## lets fetch the data
         $template->param(
-            enable_mailchimp  => ($self->retrieve_data('enable_mailchimp')) ? 1 : 0,
-            mailchimp_api_key => $self->retrieve_data('mailchimp_api_key'),
-            mailchimp_list_id => $self->retrieve_data('mailchimp_list_id'),
-            enable_eshot      => ($self->retrieve_data('enable_eshot')) ? 1 : 0,
-            eshot_api_key     => $self->retrieve_data('eshot_api_key'),
+            branches           => $branches,
+            enable_mailchimp   => ($self->retrieve_data('enable_mailchimp')) ? 1 : 0,
+            mailchimp_branches => \@mailchimp_branches,
+            mailchimp_api_key  => $self->retrieve_data('mailchimp_api_key'),
+            mailchimp_list_id  => $self->retrieve_data('mailchimp_list_id'),
+            enable_eshot       => ($self->retrieve_data('enable_eshot')) ? 1 : 0,
+            eshot_branches     => \@eshot_branches,
+            eshot_api_key      => $self->retrieve_data('eshot_api_key'),
         );
         $self->output_html($template->output());
     }
     else {
+        ## lets prep the lists
+        my $mailchimp_branches = ( $cgi->multi_param('mailchimp_branches') ) ?
+                                     join qq{\t}, $cgi->multi_param('mailchimp_branches') :
+                                     undef;
+        my $eshot_branches     = ( $cgi->multi_param('eshot_branches') ) ?
+                                     join qq{\t}, $cgi->multi_param('eshot_branches') :
+                                     undef;
+
         ## lets save the data
         $self->store_data({
-            enable_mailchimp  => scalar $cgi->param('enable_mailchimp') ? 1 : 0,
-            mailchimp_api_key => $cgi->param('mailchimp_api_key'),
-            mailchimp_list_id => $cgi->param('mailchimp_list_id'),
-            enable_eshot      => scalar $cgi->param('enable_eshot') ? 1 : 0,
-            eshot_api_key     => $cgi->param('eshot_api_key'),
+            enable_mailchimp   => scalar $cgi->param('enable_mailchimp') ? 1 : 0,
+            mailchimp_branches => $mailchimp_branches,
+            mailchimp_api_key  => $cgi->param('mailchimp_api_key'),
+            mailchimp_list_id  => $cgi->param('mailchimp_list_id'),
+            enable_eshot       => scalar $cgi->param('enable_eshot') ? 1 : 0,
+            eshot_branches     => $eshot_branches,
+            eshot_api_key      => $cgi->param('eshot_api_key'),
         });
         $self->go_home();
     }

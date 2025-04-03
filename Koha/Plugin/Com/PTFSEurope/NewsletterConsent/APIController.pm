@@ -105,8 +105,6 @@ sub update {
     my $user = $c->stash('koha.user');
     my $body = $c->req->json;
 
-    my $patron = Koha::Patrons->find( $c->param('patron_id') );
-
     return $c->render_resource_not_found("Patron")
         unless $patron;
 
@@ -248,10 +246,12 @@ sub process_sync_upstream {
         mailchimp         => {
             enabled       => ( $enable_mailchimp ) ? Mojo::JSON->true : Mojo::JSON->false,
             sync_achieved => ( $is_mailchimp_synced ) ? Mojo::JSON->true : Mojo::JSON->false,
+            message       => ( $mailchimp_sync_msg ) ? $mailchimp_sync_msg : "",
         },
         eshot             => {
             enabled       => ( $enable_eshot ) ? Mojo::JSON->true : Mojo::JSON->false,
             sync_achieved => ( $is_eshot_synced ) ? Mojo::JSON->true : Mojo::JSON->false,
+            message       => ( $eshot_sync_msg ) ? $eshot_sync_msg : "",
         },
     };
 }
@@ -268,14 +268,32 @@ sub process_sync_mailchimp {
     my $plugin                = Koha::Plugin::Com::PTFSEurope::NewsletterConsent->new;
     my $patron                = $self->{sync_patron};
     my $patron_consent_status = ( $patron->consent('NEWSLETTER')->given_on ) ? 'subscribed' : 'unsubscribed';
+    my @enabled_branches      = split /\t/, $plugin->retrieve_data('eshot_branches') || undef;
 
     ## get api details
     my $mailchimp_api_key = $plugin->retrieve_data('mailchimp_api_key');
     my $mailchimp_list_id = $plugin->retrieve_data('mailchimp_list_id');
 
     ## if the key or list ids are missing, we can't continue
-    return undef
+    return ( undef, 'missing_api_key_or_list_id' )
         unless( $mailchimp_api_key && $mailchimp_list_id );
+
+    ## figure what to do if branch limitations are enabled
+    my $len_enabled_branches   = @enabled_branches;
+    my $count_enabled_branches = 0;
+
+    for my $enabled_branch ( @enabled_branches ) {
+        $count_enabled_branches++
+            if ( $patron->branchcode eq $enabled_branch );
+    }
+
+    $count_enabled_branches++
+      if ( $len_enabled_branches < 1 );
+
+    ## act on above
+    if( $count_enabled_branches < 1 ) {
+        return ( undef, 'no_matching_branches' );
+    }
 
     ## ascertain dc from api key
     $mailchimp_api_key =~ /\S+-(.+)/i;
@@ -305,8 +323,8 @@ sub process_sync_mailchimp {
     my $response = $self->{ua}->request( $request );
 
     ## some basic logic about return code
-    return ( 1, $response->{_content} ) if( $response->{_rc} =~ /2[0-9]{2,}/i );
-    return ( undef, $response->{_content} );
+    return ( 1, undef ) if( $response->{_rc} =~ /2[0-9]{2,}/i );
+    return ( undef, "bad_response" );
 
 }
 
@@ -322,13 +340,31 @@ sub process_sync_eshot {
     my $plugin                = Koha::Plugin::Com::PTFSEurope::NewsletterConsent->new;
     my $patron                = $self->{sync_patron};
     my $patron_consent_status = ( $patron->consent('NEWSLETTER')->given_on ) ? 'subscribed' : 'unsubscribed';
+    my @enabled_branches      = split /\t/, $plugin->retrieve_data('eshot_branches') || undef;
 
     ## get api details
     my $eshot_api_key = $plugin->retrieve_data('eshot_api_key');
 
-    ## if the key or list ids are missing, we can't continue
-    return undef
+    ## if the key is missing, we can't continue
+    return ( undef, 'missing_api_key' )
         unless( $eshot_api_key );
+
+    ## figure what to do if branch limitations are enabled
+    my $len_enabled_branches   = @enabled_branches;
+    my $count_enabled_branches = 0;
+
+    for my $enabled_branch ( @enabled_branches ) {
+        $count_enabled_branches++
+            if ( $patron->branchcode eq $enabled_branch );
+    }
+
+    $count_enabled_branches++
+      if ( $len_enabled_branches < 1 );
+
+    ## act on above
+    if( $count_enabled_branches < 1 ) {
+        return ( undef, 'no_matching_branches' );
+    }
 
     ## change this to correct endpoint url
     my $baseurl = qq{https://rest-api.e-shot.net};
@@ -354,8 +390,8 @@ sub process_sync_eshot {
     my $response = $self->{ua}->request( $request );
 
     ## some basic logic about return code
-    return ( 1, $response->{_content} ) if( $response->{_rc} =~ /2[0-9]{2,}/i );
-    return ( undef, $response->{_content} );
+    return ( 1, undef ) if( $response->{_rc} =~ /2[0-9]{2,}/i );
+    return ( undef, "bad_response" );
 
 }
 

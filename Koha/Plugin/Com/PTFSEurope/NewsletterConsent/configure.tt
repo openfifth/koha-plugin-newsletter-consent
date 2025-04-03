@@ -59,6 +59,24 @@
                                     <label for="mailchimp_list_id">Mailchimp Audience ID</label>
                                     <input name="mailchimp_list_id" type="text" size="80" value="[% mailchimp_list_id %]">
                                 </li>
+                                <li>
+                                    <label for="mailchimp_branches">Mailchimp branch restriction</label>
+                                    <select id="mailchimp_branches" name="mailchimp_branches" multiple="multiple" size="10" required="required">
+                                        <option value="">All libraries</option>
+                                        [% FOR branch IN branches %]
+                                            <option
+                                              value="[% branch.branchcode %]"
+                                              [% FOR mailchimp_branch IN mailchimp_branches %]
+                                                [% IF ( branch.branchcode == mailchimp_branch ) %]
+                                                  selected="selected"
+                                                [% END %]
+                                              [% END %]
+                                            >
+                                                [% branch.branchname %]
+                                            </option>
+                                        [% END %]
+                                    </select>
+                                </li>
                             </ol>
                         </fieldset>
                         <fieldset class="rows">
@@ -82,6 +100,24 @@
                                 <li>
                                     <label for="eshot_api_key">eShot API key</label>
                                     <input name="eshot_api_key" type="text" size="80" value="[% eshot_api_key %]">
+                                </li>
+                                <li>
+                                    <label for="eshot_branches">eShot branch restriction</label>
+                                    <select id="eshot_branches" name="eshot_branches" multiple="multiple" size="10" required="required">
+                                        <option value="">All libraries</option>
+                                        [% FOR branch IN branches %]
+                                            <option
+                                              value="[% branch.branchcode %]"
+                                              [% FOR eshot_branch IN eshot_branches %]
+                                                [% IF ( branch.branchcode == eshot_branch ) %]
+                                                  selected="selected"
+                                                [% END %]
+                                              [% END %]
+                                            >
+                                                [% branch.branchname %]
+                                            </option>
+                                        [% END %]
+                                    </select>
                                 </li>
                             </ol>
                         </fieldset>
@@ -107,6 +143,11 @@
         <script>
             $( document ).ready( function() {
                 $('#navmenulist a[href$="/cgi-bin/koha/plugins/plugins-home.pl"]').addClass("current");
+            } );
+        </script>
+        <script>
+            $( document ).ready( function() {
+                // silence is golden
             } );
         </script>
     [% END %]
