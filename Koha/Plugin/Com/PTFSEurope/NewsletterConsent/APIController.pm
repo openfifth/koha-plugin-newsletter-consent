@@ -102,8 +102,8 @@ sub update {
     my ( $self ) = @_;
     my $c        = shift->openapi->valid_input or return;
 
-    my $user = $c->stash('koha.user');
-    my $body = $c->req->json;
+    my $patron = Koha::Patrons->find( $c->param('patron_id') );
+    my $body   = $c->req->json;
 
     return $c->render_resource_not_found("Patron")
         unless $patron;
@@ -155,8 +155,8 @@ sub get_sync_upstream {
     my ( $self ) = @_;
     my $c        = shift->openapi->valid_input or return;
 
-    my $patron    = $c->stash('koha.user');
     my $patron_id = $c->param('patron_id');
+    my $patron    = Koha::Patrons->find( $patron_id );
 
     ## store patron in object
     $self->{sync_patron} = $patron;
