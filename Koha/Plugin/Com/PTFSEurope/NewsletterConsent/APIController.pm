@@ -268,7 +268,7 @@ sub process_sync_mailchimp {
     my $plugin                = Koha::Plugin::Com::PTFSEurope::NewsletterConsent->new;
     my $patron                = $self->{sync_patron};
     my $patron_consent_status = ( $patron->consent('NEWSLETTER')->given_on ) ? 'subscribed' : 'unsubscribed';
-    my @enabled_branches      = split /\t/, $plugin->retrieve_data('eshot_branches') || undef;
+    my @enabled_branches      = split /\t/, $plugin->retrieve_data('mailchimp_branches') || undef;
 
     ## get api details
     my $mailchimp_api_key = $plugin->retrieve_data('mailchimp_api_key');
