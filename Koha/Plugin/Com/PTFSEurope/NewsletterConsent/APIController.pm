@@ -21,7 +21,7 @@ use Mojo::Base 'Mojolicious::Controller';
 
 use LWP::UserAgent;
 use HTTP::Request;
-use Mojo::JSON qw{ encode_json };
+use Mojo::JSON qw{ decode_json encode_json };
 use MIME::Base64;
 
 use Koha::Patrons;
@@ -334,9 +334,11 @@ sub process_sync_mailchimp {
 
     my $response = $self->{ua}->request( $request );
 
-    ## some basic logic about return code
-    return ( 1, undef ) if( $response->{_rc} =~ /2[0-9]{2,}/i );
-    return ( undef, "bad_response" );
+    return ( undef, 'bad_response' )
+      unless ( $response->{_rc} =~ /2[0-9]{2,}/i );
+
+    ## if we made it this far, success
+    return ( 1, undef )
 
 }
 
@@ -381,29 +383,46 @@ sub process_sync_eshot {
     ## change this to correct endpoint url
     my $baseurl = qq{https://rest-api.e-shot.net};
 
-    ## prep the body
-    my $body = encode_json({
-        SubaccountID => 2,
-        Email        => $patron->notice_email_address,
-    });
-
-    ## begin request
-    my $request;
-    $request = HTTP::Request->new( 'POST', $baseurl . '/Contacts/ResubscribeEmail' )
-        if $patron_consent_status eq 'subscribed';
-    $request = HTTP::Request->new( 'POST', $baseurl . '/Contacts/UnsubscribeEmail' )
-        if $patron_consent_status eq 'unsubscribed';
+    ## begin request -- save first, always, even on delete
+    my $request = HTTP::Request->new( 'POST', $baseurl . '/Contacts/Save' );
 
     $request->header( 'User-Agent'  => 'perl/"$^V' );
     $request->header( 'Content-Type'  => 'application/json' );
     $request->header( 'Authorization' => 'Token ' . $eshot_api_key );
-    $request->content($body);
+    $request->content( encode_json({
+        SubaccountID => 2,
+        Email        => $patron->notice_email_address,
+    }) );
 
     my $response = $self->{ua}->request( $request );
 
-    ## some basic logic about return code
-    return ( 1, undef ) if( $response->{_rc} =~ /2[0-9]{2,}/i );
-    return ( undef, "bad_response" );
+    return ( undef, 'bad_response_on_save' )
+      unless ( $response->{_rc} == 200 );
+
+    if ( $patron_consent_status eq 'unsubscribed' ) {
+        my $last_response    = $response;
+        my $eshot_obj        = decode_json( $last_response->{_content} );
+        my $eshot_contact_id = $eshot_obj->{id};
+
+        undef $request;
+        undef $response;
+
+        ## begin request -- now run delete, if applicable
+        my $request = HTTP::Request->new( 'DELETE', $baseurl . '/Contacts(' . $eshot_contact_id . ')' );
+
+        $request->header( 'User-Agent'  => 'perl/"$^V' );
+        $request->header( 'Content-Type'  => 'application/json' );
+        $request->header( 'Authorization' => 'Token ' . $eshot_api_key );
+        $request->content( '' );
+
+        my $response = $self->{ua}->request( $request );
+
+        return ( undef, 'bad_response_on_delete' )
+          unless ( $response->{_rc} == 204 || $response->{_rc} == 404 );
+    }
+
+    ## if we made it this far, success
+    return ( 1, undef );
 
 }
 
