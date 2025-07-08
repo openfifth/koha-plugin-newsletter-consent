@@ -74,10 +74,16 @@ sub get {
     my ( $self, $args ) = @_;
     my $c               = shift->openapi->valid_input or return;
 
+    my $user   = $c->stash('koha.user');
     my $patron = Koha::Patrons->find( $c->param('patron_id') );
 
-    return $c->render_resource_not_found("Patron")
+    return $c->render_resource_not_found('Patron')
         unless $patron;
+
+    return $c->render(
+        status  => 403,
+        openapi => { error => "Unprivileged user cannot access another user's resources" }
+    ) unless $patron->borrowernumber == $user->borrowernumber || $user->is_superlibrarian;
 
     return try {
         my $contents_rs = Koha::Patron::Consents->search( { borrowernumber => $patron->borrowernumber } );
@@ -102,11 +108,17 @@ sub update {
     my ( $self ) = @_;
     my $c        = shift->openapi->valid_input or return;
 
+    my $user   = $c->stash('koha.user');
     my $patron = Koha::Patrons->find( $c->param('patron_id') );
     my $body   = $c->req->json;
 
-    return $c->render_resource_not_found("Patron")
+    return $c->render_resource_not_found('Patron')
         unless $patron;
+
+    return $c->render(
+        status  => 403,
+        openapi => { error => "Unprivileged user cannot access another user's resources" }
+    ) unless $patron->borrowernumber == $user->borrowernumber || $user->is_superlibrarian;
 
     my $consent_types = Koha::Patron::Consents->available_types;
     ## gather consent types
@@ -155,19 +167,19 @@ sub get_sync_upstream {
     my ( $self ) = @_;
     my $c        = shift->openapi->valid_input or return;
 
-    my $patron_id = $c->param('patron_id');
-    my $patron    = Koha::Patrons->find( $patron_id );
+    my $user   = $c->stash('koha.user');
+    my $patron = Koha::Patrons->find( $c->param('patron_id') );
+
+    return $c->render_resource_not_found('Patron')
+        unless $patron;
 
     ## store patron in object
     $self->{sync_patron} = $patron;
 
-    ## block cross-patron usage
     return $c->render(
         status  => 403,
-        openapi => {
-            error => 'Changing other patron\'s consents is forbidden',
-        },
-    ) unless( $patron->borrowernumber == $patron_id );
+        openapi => { error => "Unprivileged user cannot access another user's resources" }
+    ) unless $patron->borrowernumber == $user->borrowernumber || $user->is_superlibrarian;
 
     return try {
         ## attempt to do the sync

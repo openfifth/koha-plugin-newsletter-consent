@@ -73,10 +73,6 @@
             error:
               description: An explanation for the error
               type: string
-    x-koha-authorization:
-      permissions:
-        borrowers: "1"
-      allow-owner: true
   put:
     x-mojo-to: Com::PTFSEurope::NewsletterConsent::APIController#update
     operationId: updateConsent
@@ -131,10 +127,6 @@
             error:
               description: An explanation for the error
               type: string
-    x-koha-authorization:
-      permissions:
-        borrowers: "1"
-      allow-owner: true
 "/consents/{patron_id}/sync_upstream":
   get:
     x-mojo-to: Com::PTFSEurope::NewsletterConsent::APIController#get_sync_upstream
@@ -175,7 +167,3 @@
             error:
               description: An explanation for the error
               type: string
-    x-koha-authorization:
-      permissions:
-        borrowers: "1"
-      allow-owner: true
