@@ -9,13 +9,13 @@ use Koha::Libraries;
 use JSON;
 use JSON::Validator::Schema::OpenAPIv2;
 
-our $VERSION  = '1.0.2';
+our $VERSION  = '1.0.3';
 our $metadata = {
     name            => 'Newsletter Consent',
     author          => 'Jake Deery',
     date_authored   => '2024-10-22',
     date_updated    => '2024-12-20',
-    minimum_version => '23.11.00.000',
+    minimum_version => '24.11.00.000',
     maximum_version => undef,
     version         => $VERSION,
     description     => 'A plugin that will allow borrowers to opt in or out of receiving marketing messages',
