@@ -325,7 +325,7 @@ sub process_sync_mailchimp {
     });
 
     ## begin request
-    my $request = HTTP::Request->new( 'POST', $baseurl . '/lists/' . $mailchimp_list_id );
+    my $request = HTTP::Request->new( 'POST', $baseurl . '/lists/' . $mailchimp_list_id . '?skip_merge_validation=true&skip_duplicate_check=false' );
 
     $request->header( 'User-Agent'  => 'perl/"$^V' );
     $request->header( 'Content-Type'  => 'application/json' );
@@ -334,8 +334,33 @@ sub process_sync_mailchimp {
 
     my $response = $self->{ua}->request( $request );
 
-    return ( undef, 'bad_response' )
+    return ( undef, 'bad_response_on_save' )
       unless ( $response->{_rc} =~ /2[0-9]{2,}/i );
+
+    my $mailchimp_json       = decode_json( $response->{_content} );
+    my $mailchimp_contact_id = $mailchimp_json->{new_members}[0]->{id} || $mailchimp_json->{updated_members}[0]->{id};
+
+    if ( $patron_consent_status eq 'unsubscribed' ) {
+        undef $request;
+        undef $response;
+        undef $body;
+
+        ## begin request -- now run delete, if applicable
+        my $request = HTTP::Request->new( 'DELETE', $baseurl . '/lists/' . $mailchimp_list_id . '/members/' . $mailchimp_contact_id );
+
+        ## body isnt necessary here
+        my $body = '';
+
+        $request->header( 'User-Agent'  => 'perl/"$^V' );
+        $request->header( 'Content-Type'  => 'application/json' );
+        $request->header( 'Authorization' => 'Basic ' . encode_base64( qq{anon:$mailchimp_api_key} ) );
+        $request->content($body);
+
+        my $response = $self->{ua}->request( $request );
+
+        return ( undef, 'bad_response_on_delete' )
+          unless ( $response->{_rc} == 204 || $response->{_rc} == 404 || $response->{_rc} == 405 );
+    }
 
     ## if we made it this far, success
     return ( 1, undef )
@@ -383,37 +408,70 @@ sub process_sync_eshot {
     ## change this to correct endpoint url
     my $baseurl = qq{https://rest-api.e-shot.net};
 
+    ## prep the body
+    my $body = encode_json({
+        SubaccountID => 2,
+        Email        => $patron->notice_email_address,
+    });
+
     ## begin request -- save first, always, even on delete
     my $request = HTTP::Request->new( 'POST', $baseurl . '/Contacts/Save' );
 
     $request->header( 'User-Agent'  => 'perl/"$^V' );
     $request->header( 'Content-Type'  => 'application/json' );
     $request->header( 'Authorization' => 'Token ' . $eshot_api_key );
-    $request->content( encode_json({
-        SubaccountID => 2,
-        Email        => $patron->notice_email_address,
-    }) );
+    $request->content($body);
 
     my $response = $self->{ua}->request( $request );
 
     return ( undef, 'bad_response_on_save' )
       unless ( $response->{_rc} == 200 );
 
-    if ( $patron_consent_status eq 'unsubscribed' ) {
-        my $last_response    = $response;
-        my $eshot_obj        = decode_json( $last_response->{_content} );
-        my $eshot_contact_id = $eshot_obj->{id};
+    my $eshot_json       = decode_json( $response->{_content} );
+    my $eshot_contact_id = $eshot_json->{id};
 
+    if ( $patron_consent_status eq 'subscribed' ) {
         undef $request;
         undef $response;
+        undef $body;
+
+        ## fetch eshot group id or exit
+        my $eshot_group_id = $plugin->retrieve_data('eshot_group_id');
+        return ( undef, 'no_eshot_group_id' )
+          unless $eshot_group_id;
 
         ## begin request -- now run delete, if applicable
-        my $request = HTTP::Request->new( 'DELETE', $baseurl . '/Contacts(' . $eshot_contact_id . ')' );
+        my $request = HTTP::Request->new( 'POST', $baseurl . '/Contacts(' . $eshot_contact_id . ')/Groups/$ref' );
+
+        ## populate the request body with the group reference
+        my $body = '{"@odata.id": "https://rest-api.e-shot.net/Groups(' . $eshot_group_id . ')"}';
 
         $request->header( 'User-Agent'  => 'perl/"$^V' );
         $request->header( 'Content-Type'  => 'application/json' );
         $request->header( 'Authorization' => 'Token ' . $eshot_api_key );
-        $request->content( '' );
+        $request->content($body);
+
+        my $response = $self->{ua}->request( $request );
+
+        return ( undef, 'bad_response_on_groupadd' )
+          unless ( $response->{_rc} == 204 || $response->{_rc} == 404 );
+    }
+
+    if ( $patron_consent_status eq 'unsubscribed' ) {
+        undef $request;
+        undef $response;
+        undef $body;
+
+        ## begin request -- now run delete, if applicable
+        my $request = HTTP::Request->new( 'DELETE', $baseurl . '/Contacts(' . $eshot_contact_id . ')' );
+
+        ## body isnt necessary here
+        my $body = '';
+
+        $request->header( 'User-Agent'  => 'perl/"$^V' );
+        $request->header( 'Content-Type'  => 'application/json' );
+        $request->header( 'Authorization' => 'Token ' . $eshot_api_key );
+        $request->content($body);
 
         my $response = $self->{ua}->request( $request );
 

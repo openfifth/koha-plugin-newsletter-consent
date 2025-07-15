@@ -53,11 +53,11 @@
                                 </li>
                                 <li>
                                     <label for="mailchimp_api_key">Mailchimp API key</label>
-                                    <input name="mailchimp_api_key" type="text" size="80" value="[% mailchimp_api_key %]">
+                                    <input name="mailchimp_api_key" type="text" size="80" value="[% mailchimp_api_key | html %]">
                                 </li>
                                 <li>
                                     <label for="mailchimp_list_id">Mailchimp Audience ID</label>
-                                    <input name="mailchimp_list_id" type="text" size="80" value="[% mailchimp_list_id %]">
+                                    <input name="mailchimp_list_id" type="text" size="80" value="[% mailchimp_list_id | html %]">
                                 </li>
                                 <li>
                                     <label for="mailchimp_branches">Mailchimp branch restriction</label>
@@ -65,14 +65,14 @@
                                         <option value="">All libraries</option>
                                         [% FOR branch IN branches %]
                                             <option
-                                              value="[% branch.branchcode %]"
+                                              value="[% branch.branchcode | html %]"
                                               [% FOR mailchimp_branch IN mailchimp_branches %]
                                                 [% IF ( branch.branchcode == mailchimp_branch ) %]
                                                   selected="selected"
                                                 [% END %]
                                               [% END %]
                                             >
-                                                [% branch.branchname %]
+                                                [% branch.branchname | html %]
                                             </option>
                                         [% END %]
                                     </select>
@@ -99,7 +99,11 @@
                                 </li>
                                 <li>
                                     <label for="eshot_api_key">eShot API key</label>
-                                    <input name="eshot_api_key" type="text" size="80" value="[% eshot_api_key %]">
+                                    <input name="eshot_api_key" type="text" size="80" value="[% eshot_api_key | html %]">
+                                </li>
+                                <li>
+                                    <label for="eshot_group_id">eShot Group ID</label>
+                                    <input name="eshot_group_id" type="text" size="80" value="[% eshot_group_id | html %]">
                                 </li>
                                 <li>
                                     <label for="eshot_branches">eShot branch restriction</label>
@@ -107,14 +111,14 @@
                                         <option value="">All libraries</option>
                                         [% FOR branch IN branches %]
                                             <option
-                                              value="[% branch.branchcode %]"
+                                              value="[% branch.branchcode | html %]"
                                               [% FOR eshot_branch IN eshot_branches %]
                                                 [% IF ( branch.branchcode == eshot_branch ) %]
                                                   selected="selected"
                                                 [% END %]
                                               [% END %]
                                             >
-                                                [% branch.branchname %]
+                                                [% branch.branchname | html %]
                                             </option>
                                         [% END %]
                                     </select>

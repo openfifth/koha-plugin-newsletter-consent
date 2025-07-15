@@ -80,6 +80,7 @@ sub configure {
             enable_eshot       => ($self->retrieve_data('enable_eshot')) ? 1 : 0,
             eshot_branches     => \@eshot_branches,
             eshot_api_key      => $self->retrieve_data('eshot_api_key'),
+            eshot_group_id     => $self->retrieve_data('eshot_group_id'),
         );
         $self->output_html($template->output());
     }
@@ -101,6 +102,7 @@ sub configure {
             enable_eshot       => scalar $cgi->param('enable_eshot') ? 1 : 0,
             eshot_branches     => $eshot_branches,
             eshot_api_key      => $cgi->param('eshot_api_key'),
+            eshot_group_id     => $cgi->param('eshot_group_id'),
         });
         $self->go_home();
     }
