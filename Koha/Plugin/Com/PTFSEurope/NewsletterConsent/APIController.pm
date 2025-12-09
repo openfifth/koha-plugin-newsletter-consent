@@ -23,6 +23,7 @@ use LWP::UserAgent;
 use HTTP::Request;
 use Mojo::JSON qw{ decode_json encode_json };
 use MIME::Base64;
+use XML::LibXML;
 
 use Koha::Patrons;
 use Koha::DateUtils qw{ dt_from_string };
@@ -234,11 +235,12 @@ sub process_sync_upstream {
     return { error => 'no notice_email_address found' }
         unless( defined $patron->notice_email_address );
 
-    ## determine if mailchimp & eshot are actually enabled
-    my $enable_mailchimp = $plugin->retrieve_data('enable_mailchimp');
-    my $enable_eshot     = $plugin->retrieve_data('enable_eshot');
+    ## determine if mailchimp, eshot, and govdelivery are actually enabled
+    my $enable_mailchimp   = $plugin->retrieve_data('enable_mailchimp');
+    my $enable_eshot       = $plugin->retrieve_data('enable_eshot');
+    my $enable_govdelivery = $plugin->retrieve_data('enable_govdelivery');
     ## if neither are enabled, there is nothing to sync
-    return {} unless( $enable_mailchimp == 1 || $enable_eshot == 1 );
+    return {} unless( $enable_mailchimp == 1 || $enable_eshot == 1 || $enable_govdelivery == 1 );
 
     ## prepare a user agent for the requests
     $self->{ua} = LWP::UserAgent->new;
@@ -250,6 +252,10 @@ sub process_sync_upstream {
     ## righty, lets sync these consents -- eshot
     my ($is_eshot_synced, $eshot_sync_msg) = $self->process_sync_eshot()
         if( $enable_eshot );
+
+    ## righty, lets sync these consents -- govdelivery
+    my ($is_govdelivery_synced, $govdelivery_sync_msg) = $self->process_sync_govdelivery()
+        if( $enable_govdelivery );
 
     ## we're done
     return {
@@ -264,6 +270,11 @@ sub process_sync_upstream {
             enabled       => ( $enable_eshot ) ? Mojo::JSON->true : Mojo::JSON->false,
             sync_achieved => ( $is_eshot_synced ) ? Mojo::JSON->true : Mojo::JSON->false,
             message       => ( $eshot_sync_msg ) ? $eshot_sync_msg : "",
+        },
+        govdelivery       => {
+            enabled       => ( $enable_govdelivery ) ? Mojo::JSON->true : Mojo::JSON->false,
+            sync_achieved => ( $is_govdelivery_synced ) ? Mojo::JSON->true : Mojo::JSON->false,
+            message       => ( $govdelivery_sync_msg ) ? $govdelivery_sync_msg : "",
         },
     };
 }
@@ -283,7 +294,7 @@ sub process_sync_mailchimp {
     my @enabled_branches      = split /\t/, $plugin->retrieve_data('mailchimp_branches') || undef;
 
     ## get api details
-    my $mailchimp_api_key = $plugin->retrieve_data('mailchimp_api_key');
+    my $mailchimp_api_key = $plugin->decode_secret( $plugin->retrieve_data('mailchimp_api_key') );
     my $mailchimp_list_id = $plugin->retrieve_data('mailchimp_list_id');
 
     ## if the key or list ids are missing, we can't continue
@@ -382,7 +393,7 @@ sub process_sync_eshot {
     my @enabled_branches      = split /\t/, $plugin->retrieve_data('eshot_branches') || undef;
 
     ## get api details
-    my $eshot_api_key = $plugin->retrieve_data('eshot_api_key');
+    my $eshot_api_key = $plugin->decode_secret( $plugin->retrieve_data('eshot_api_key') );
 
     ## if the key is missing, we can't continue
     return ( undef, 'missing_api_key' )
@@ -483,5 +494,161 @@ sub process_sync_eshot {
     return ( 1, undef );
 
 }
+
+
+=head3 process_sync_govdelivery
+
+Method function that handles passing a patron's consent to govDelivery
+
+=cut
+
+sub process_sync_govdelivery {
+    my ( $self, $args ) = @_;
+    my $plugin                = Koha::Plugin::Com::PTFSEurope::NewsletterConsent->new;
+    my $patron                = $self->{sync_patron};
+    my $patron_consent_status = ( $patron->consent('NEWSLETTER')->given_on ) ? 'subscribed' : 'unsubscribed';
+    my @enabled_branches      = split /\t/, $plugin->retrieve_data('govdelivery_branches') || undef;
+
+    ## get api details
+    my $govdelivery_account_id  = $plugin->retrieve_data('govdelivery_account_id');
+    my $govdelivery_user_login  = $plugin->retrieve_data('govdelivery_user_login');
+    my $govdelivery_user_passwd = $plugin->decode_secret( $plugin->retrieve_data('govdelivery_user_passwd') );
+
+    ## if the logins are missing, we can't continue
+    return ( undef, 'missing_user_login' )
+        unless ($govdelivery_user_login);
+    return ( undef, 'govdelivery_user_passwd' )
+        unless ($govdelivery_user_passwd);
+
+    ## figure what to do if branch limitations are enabled
+    my $len_enabled_branches   = @enabled_branches;
+    my $count_enabled_branches = 0;
+
+    for my $enabled_branch (@enabled_branches) {
+        $count_enabled_branches++
+            if ( $patron->branchcode eq $enabled_branch );
+    }
+
+    $count_enabled_branches++
+        if ( $len_enabled_branches < 1 );
+
+    ## act on above
+    if ( $count_enabled_branches < 1 ) {
+        return ( undef, 'no_matching_branches' );
+    }
+
+    ## change this to correct endpoint url
+    my $baseurl = qq{https://stage-api.govdelivery.com/api};
+
+    ## prep the body
+    my $body =
+          '<subscriber><email>'
+        . $patron->notice_email_address
+        . '</email><send-notifications type="boolean">true</send-notifications><digest-for>0</digest-for></subscriber>';
+
+    ## begin request -- save first, always, even on delete
+    my $request = HTTP::Request->new( 'POST', $baseurl . '/account/' . $govdelivery_account_id . '/subscribers.xml' );
+
+    $request->header( 'User-Agent'   => 'perl/"$^V' );
+    $request->header( 'Content-Type' => 'application/xml' );
+    $request->header(
+        'Authorization' => 'Basic ' . encode_base64(qq{$govdelivery_user_login:$govdelivery_user_passwd}) );
+    $request->content($body);
+
+    my $response = $self->{ua}->request($request);
+
+    return ( undef, 'bad_response_on_create_subscriber' )
+        unless ( $response->{_rc} == 200 || index( $response->{_content}, "Email has already been taken" ) != -1 );
+
+    undef $request;
+    undef $response;
+    undef $body;
+
+    ## next, subscribe the user to the correct topic id
+    my $govdelivery_topic_id = $plugin->retrieve_data('govdelivery_topic_id');
+
+    ## prep the body
+    my $body =
+          '<subscriber><email>'
+        . $patron->notice_email_address
+        . '</email><send-notifications type="boolean">true</send-notifications><topics type="array"><topic><code>'
+        . $govdelivery_topic_id
+        . '</code></topic></topics></subscriber>';
+
+    ## begin request -- attach the created subscriber to the subscription
+    my $request = HTTP::Request->new( 'POST', $baseurl . '/account/' . $govdelivery_account_id . '/subscriptions.xml' );
+
+    $request->header( 'User-Agent'   => 'perl/"$^V' );
+    $request->header( 'Content-Type' => 'application/xml' );
+    $request->header(
+        'Authorization' => 'Basic ' . encode_base64(qq{$govdelivery_user_login:$govdelivery_user_passwd}) );
+    $request->content($body);
+
+    my $response = $self->{ua}->request($request);
+
+    return ( undef, 'bad_response_on_add_subscription' )
+        unless ( $response->{_rc} == 200 );
+
+    if ( $patron_consent_status eq 'unsubscribed' ) {
+        undef $request;
+        undef $response;
+        undef $body;
+
+        ## the user has requested their subscription end -- action this now
+        ## first step, delete the subscription from the subscriber
+
+        ## prep the body
+        my $body =
+              '<subscriber><email>'
+            . $patron->notice_email_address
+            . '</email><send-notifications type="boolean">true</send-notifications><topics type="array"><topic><code>'
+            . $govdelivery_topic_id
+            . '</code></topic></topics></subscriber>';
+
+        ## begin request -- attach the created subscriber to the subscription
+        my $request =
+            HTTP::Request->new( 'DELETE', $baseurl . '/account/' . $govdelivery_account_id . '/subscriptions.xml' );
+
+        $request->header( 'User-Agent'   => 'perl/"$^V' );
+        $request->header( 'Content-Type' => 'application/xml' );
+        $request->header(
+            'Authorization' => 'Basic ' . encode_base64(qq{$govdelivery_user_login:$govdelivery_user_passwd}) );
+        $request->content($body);
+
+        my $response = $self->{ua}->request($request);
+
+        return ( undef, 'bad_response_on_delete_subscription' )
+            unless ( $response->{_rc} == 200 );
+
+        undef $request;
+        undef $response;
+        undef $body;
+
+        ## second step, delete the subscriber from the database
+        my $request = HTTP::Request->new(
+            'DELETE',
+            $baseurl
+                . '/account/'
+                . $govdelivery_account_id
+                . '/subscribers/'
+                . encode_base64( $patron->notice_email_address ) . '.xml'
+        );
+
+        $request->header( 'User-Agent'   => 'perl/"$^V' );
+        $request->header( 'Content-Type' => 'application/xml' );
+        $request->header(
+            'Authorization' => 'Basic ' . encode_base64(qq{$govdelivery_user_login:$govdelivery_user_passwd}) );
+
+        my $response = $self->{ua}->request($request);
+
+        return ( undef, 'bad_response_on_delete_subscriber' )
+            unless ( $response->{_rc} == 200 || index( $response->{_content}, "Subscriber not found" ) != -1 );
+    }
+
+    ## if we made it this far, success
+    return ( 1, undef );
+
+}
+
 
 1;

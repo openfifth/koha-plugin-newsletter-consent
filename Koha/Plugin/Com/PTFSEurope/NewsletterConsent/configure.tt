@@ -125,6 +125,61 @@
                                 </li>
                             </ol>
                         </fieldset>
+                        <fieldset class="rows">
+                            <p>Please specify if you desire to sync patron consents with govDelivery. If you do, please provide the username and password, as well as the account code and topic code, for your account.</p>
+                            <p>Documentation on getting started with the govDelivery API can be found <a href="https://support.granicus.com/s/article/Getting-Started-API?language=en_US&c=&p=Communications%20%28govDelivery%29%20API" target="_blank">at this link</a>.</p>
+                            <ol>
+                                <li>
+                                    <label for="enable_govdelivery">Enable govDelivery</label>
+                                    <select name="enable_govdelivery">
+                                        [% IF enable_govdelivery == 1 %]
+                                        <option value="1" selected="selected">Yes</option>
+                                        [% ELSE %]
+                                        <option value="1">Yes</option>
+                                        [% END %]
+                                        [% IF enable_govdelivery == 1 %]
+                                        <option value="0">No</option>
+                                        [% ELSE %]
+                                        <option value="0" selected="selected">No</option>
+                                        [% END %]
+                                    </select>
+                                </li>
+                                <li>
+                                    <label for="govdelivery_account_id">govDelivery account code</label>
+                                    <input name="govdelivery_account_id" type="text" size="80" value="[% govdelivery_account_id | html %]">
+                                </li>
+                                <li>
+                                    <label for="govdelivery_topic_id">govDelivery topic code</label>
+                                    <input name="govdelivery_topic_id" type="text" size="80" value="[% govdelivery_topic_id | html %]">
+                                </li>
+                                <li>
+                                    <label for="govdelivery_user_login">govDelivery user login</label>
+                                    <input name="govdelivery_user_login" type="text" size="80" value="[% govdelivery_user_login | html %]">
+                                </li>
+                                <li>
+                                    <label for="govdelivery_user_passwd">govDelivery user password</label>
+                                    <input name="govdelivery_user_passwd" type="password" size="80" value="[% govdelivery_user_passwd | html %]">
+                                </li>
+                                <li>
+                                    <label for="govdelivery_branches">govDelivery branch restriction</label>
+                                    <select id="govdelivery_branches" name="govdelivery_branches" multiple="multiple" size="10" required="required">
+                                        <option value="">All libraries</option>
+                                        [% FOR branch IN branches %]
+                                            <option
+                                              value="[% branch.branchcode | html %]"
+                                              [% FOR govdelivery_branch IN govdelivery_branches %]
+                                                [% IF ( branch.branchcode == govdelivery_branch ) %]
+                                                  selected="selected"
+                                                [% END %]
+                                              [% END %]
+                                            >
+                                                [% branch.branchname | html %]
+                                            </option>
+                                        [% END %]
+                                    </select>
+                                </li>
+                            </ol>
+                        </fieldset>
                         <fieldset class="action">
                             <input type="hidden" name="class" value="[% CLASS %]"/>
                             <input type="hidden" name="method" value="[% METHOD %]"/>
@@ -146,7 +201,7 @@
     [% MACRO jsinclude BLOCK %]
         <script>
             $( document ).ready( function() {
-                $('#navmenulist a[href$="/cgi-bin/koha/plugins/plugins-home.pl"]').addClass("current");
+                $('.sidebar_menu a[href$="/cgi-bin/koha/plugins/plugins-home.pl"]').addClass("current");
             } );
         </script>
         <script>
