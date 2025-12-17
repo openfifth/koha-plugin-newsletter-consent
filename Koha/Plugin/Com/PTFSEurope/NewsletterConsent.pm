@@ -10,7 +10,7 @@ use Koha::Encryption;
 use JSON;
 use JSON::Validator::Schema::OpenAPIv2;
 
-our $VERSION  = '1.0.3';
+our $VERSION  = '1.0.4';
 our $metadata = {
     name            => 'Newsletter Consent',
     author          => 'Jake Deery',
